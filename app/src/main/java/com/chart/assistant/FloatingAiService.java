@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -60,7 +61,7 @@ public class FloatingAiService extends Service {
         public void run() {
             if (!isRunning) return;
             captureAndAnalyze();
-            handler.postDelayed(this, 8000); // Har 8 second mein auto-scan
+            handler.postDelayed(this, 8000);
         }
     };
 
@@ -70,7 +71,11 @@ public class FloatingAiService extends Service {
         SharedPreferences prefs = getSharedPreferences("ChartAI", MODE_PRIVATE);
         apiKey = prefs.getString("api_key", "");
         createNotificationChannel();
-        startForeground(1, buildNotification());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else {
+            startForeground(1, buildNotification());
+        }
         setupFloatingWindow();
     }
 
@@ -80,10 +85,12 @@ public class FloatingAiService extends Service {
             int resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED);
             Intent data = intent.getParcelableExtra("data");
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-            mediaProjection = mpm.getMediaProjection(resultCode, data);
-            setupVirtualDisplay();
-            isRunning = true;
-            handler.postDelayed(scanRunnable, 2000);
+            if (mpm != null && data != null) {
+                mediaProjection = mpm.getMediaProjection(resultCode, data);
+                setupVirtualDisplay();
+                isRunning = true;
+                handler.postDelayed(scanRunnable, 2000);
+            }
         }
         return START_STICKY;
     }
